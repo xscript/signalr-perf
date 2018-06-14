@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27703.2026
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "signalr.perf.client", "src\signalr.perf.client\signalr.perf.client.csproj", "{B6D33B6B-F443-4EF4-AE66-B42708F37A0C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B6D33B6B-F443-4EF4-AE66-B42708F37A0C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B6D33B6B-F443-4EF4-AE66-B42708F37A0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B6D33B6B-F443-4EF4-AE66-B42708F37A0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B6D33B6B-F443-4EF4-AE66-B42708F37A0C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C12CFCA4-5753-4266-9C89-325804872CF8}
+	EndGlobalSection
+EndGlobal
