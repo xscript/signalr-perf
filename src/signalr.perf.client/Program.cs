@@ -18,7 +18,7 @@ namespace signalr.perf.client
         private const string AzureSignalRConnectionStringKey = "AzureSignalRConnectionString";
         private const string Hub = "chat";
         private static readonly double TickInMillisecond = 1000d / Stopwatch.Frequency;
-        private const int TotalConnection = 300;
+        private const int TotalConnection = 1000;
 
         private static string _clientUrl;
         private static SigningCredentials _credentials;
@@ -79,6 +79,7 @@ namespace signalr.perf.client
             Console.WriteLine($"{_connected}/{TotalConnection} Connections established. Time elapsed: {(endTimestamp - startTimestamp) * TickInMillisecond} ms");
         }
 
+        private static int _receivedMessageCount;
         private static async Task<HubConnection> StartConnection()
         {
             var connection = new HubConnectionBuilder()
@@ -88,7 +89,10 @@ namespace signalr.perf.client
 
             try
             {
+                connection.On<string>("echo", message => Interlocked.Increment(ref _receivedMessageCount));
+
                 await connection.StartAsync();
+                
                 Interlocked.Increment(ref _connected);
             }
             catch (Exception ex)
@@ -97,6 +101,11 @@ namespace signalr.perf.client
             }
 
             return connection;
+        }
+
+        private static async Task StartSendingMessageAsync()
+        {
+            await Task.CompletedTask;
         }
 
         private static Task<string> GenerateAccessToken()
