@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -19,18 +20,25 @@ namespace signalr.perf.client
         private const string Hub = "chat";
         private static readonly double TickInMillisecond = 1000d / Stopwatch.Frequency;
         private const int TotalConnection = 1000;
+        private const int Concurrency = 200;
 
         private static string _clientUrl;
         private static SigningCredentials _credentials;
         private static readonly JwtSecurityTokenHandler Handler = new JwtSecurityTokenHandler();
 
+        private static readonly IList<HubConnection> _connections = new List<HubConnection>();
         private static int _connected;
+        private static int _sentMessageCount;
+        private static int _errorSendMessageCount;
+        private static int _receivedMessageCount;
 
         static void Main(string[] args)
         {
             Init();
 
             Run().GetAwaiter().GetResult();
+
+            PrintStatistics();
         }
 
         private static void Init()
@@ -71,15 +79,32 @@ namespace signalr.perf.client
             var startTimestamp = Stopwatch.GetTimestamp();
             for (var i = 0; i < TotalConnection; i++)
             {
+                //await StartConnection();
+
                 tasks.Add(StartConnection());
+                if (i > 0 && i % Concurrency == 0)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(1));
+                }
             }
             await Task.WhenAll(tasks);
             var endTimestamp = Stopwatch.GetTimestamp();
 
-            Console.WriteLine($"{_connected}/{TotalConnection} Connections established. Time elapsed: {(endTimestamp - startTimestamp) * TickInMillisecond} ms");
+            Console.WriteLine($"{_connected}/{TotalConnection} Connections established. Concurrency = {Concurrency}/s. Time elapsed: {(endTimestamp - startTimestamp) * TickInMillisecond} ms");
+
+            if (_connections.Count == 0)
+            {
+                Console.WriteLine("No connection is connected. Exit.");
+                return;
+            }
+
+            tasks = _connections.Select(StartSendingMessageAsync).ToList();
+            await Task.WhenAll(tasks);
+
+            // Wait for some extra time to allow receiving all messages.
+            await Task.Delay(TimeSpan.FromSeconds(10));
         }
 
-        private static int _receivedMessageCount;
         private static async Task<HubConnection> StartConnection()
         {
             var connection = new HubConnectionBuilder()
@@ -89,23 +114,41 @@ namespace signalr.perf.client
 
             try
             {
-                connection.On<string>("echo", message => Interlocked.Increment(ref _receivedMessageCount));
+                connection.On<string, string>("echo", (name, message) => Interlocked.Increment(ref _receivedMessageCount));
 
                 await connection.StartAsync();
                 
                 Interlocked.Increment(ref _connected);
+                _connections.Add(connection);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"Failed to start connection: {ex} \n");
+                //Console.WriteLine($"Failed to start connection: {ex} \n");
             }
 
             return connection;
         }
 
-        private static async Task StartSendingMessageAsync()
+        private static async Task StartSendingMessageAsync(HubConnection connection)
         {
-            await Task.CompletedTask;
+            await Task.Delay(TimeSpan.FromMilliseconds(StaticRandom.Next(1000)));
+            using (var cts = new CancellationTokenSource(TimeSpan.FromMinutes(1)))
+            {
+                while (!cts.IsCancellationRequested)
+                {
+                    try
+                    {
+                        await connection.SendAsync("echo", "id", $"{Stopwatch.GetTimestamp()}");
+                        Interlocked.Increment(ref _sentMessageCount);
+                    }
+                    catch
+                    {
+                        Interlocked.Increment(ref _errorSendMessageCount);
+                    }
+
+                    await Task.Delay(TimeSpan.FromSeconds(1));
+                }
+            }
         }
 
         private static Task<string> GenerateAccessToken()
@@ -115,6 +158,15 @@ namespace signalr.perf.client
                 expires: DateTime.UtcNow.AddDays(1),
                 signingCredentials: _credentials);
             return Task.FromResult(Handler.WriteToken(token));
+        }
+
+        private static void PrintStatistics()
+        {
+            Console.WriteLine($"Initiated       : {TotalConnection}");
+            Console.WriteLine($"Connected       : {_connected}");
+            Console.WriteLine($"Sent Count      : {_sentMessageCount}");
+            Console.WriteLine($"Send Error      : {_errorSendMessageCount}");
+            Console.WriteLine($"Received Count  : {_receivedMessageCount}");
         }
     }
 }
